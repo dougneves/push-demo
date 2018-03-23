@@ -9,9 +9,9 @@
 // This link also includes instructions on opting out of this behavior.
 
 const isLocalhost = Boolean(
-  window.location.hostname === 'localhost' ||
+  window.location.hostname === "localhost" ||
     // [::1] is the IPv6 localhost address.
-    window.location.hostname === '[::1]' ||
+    window.location.hostname === "[::1]" ||
     // 127.0.0.1/8 is considered localhost for IPv4.
     window.location.hostname.match(
       /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
@@ -19,7 +19,8 @@ const isLocalhost = Boolean(
 );
 
 export default function register() {
-  if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+  console.log(`register service worker...`);
+  if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
     // The URL constructor is available in all browsers that support SW.
     const publicUrl = new URL(process.env.PUBLIC_URL, window.location);
     if (publicUrl.origin !== window.location.origin) {
@@ -29,7 +30,7 @@ export default function register() {
       return;
     }
 
-    window.addEventListener('load', () => {
+    window.addEventListener("load", () => {
       const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
 
       if (isLocalhost) {
@@ -40,8 +41,8 @@ export default function register() {
         // service worker/PWA documentation.
         navigator.serviceWorker.ready.then(() => {
           console.log(
-            'This web app is being served cache-first by a service ' +
-              'worker. To learn more, visit https://goo.gl/SC7cgQ'
+            "This web app is being served cache-first by a service " +
+              "worker. To learn more, visit https://goo.gl/SC7cgQ"
           );
         });
       } else {
@@ -56,28 +57,56 @@ function registerValidSW(swUrl) {
   navigator.serviceWorker
     .register(swUrl)
     .then(registration => {
+      if ("PushManager" in window) {
+        console.log("Asking for push notification user permission");
+        askPermission()
+          .then(() => {
+            console.log("trying to subscribe");
+            const subscribeOptions = {
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(
+                "BIlU27N4bL2RoMh39on3Yh4HapV21c9qFtqJjgHxS8A-7-z6026EZ6BI5sbeJIlrpFjgOYAtKDL-b4fxUttZNUM"
+              )
+            };
+            registration.pushManager
+              .subscribe(subscribeOptions)
+              .then(pushSubscription => {
+                console.log(
+                  "Received PushSubscription: ",
+                  JSON.stringify(pushSubscription)
+                );
+              })
+              .catch(err => console.error(err));
+          })
+          .catch(err => console.error(err));
+      } else {
+        console.log(
+          `the browser doesn't have push notification capabilities...`
+        );
+      }
+
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         installingWorker.onstatechange = () => {
-          if (installingWorker.state === 'installed') {
+          if (installingWorker.state === "installed") {
             if (navigator.serviceWorker.controller) {
               // At this point, the old content will have been purged and
               // the fresh content will have been added to the cache.
               // It's the perfect time to display a "New content is
               // available; please refresh." message in your web app.
-              console.log('New content is available; please refresh.');
+              console.log("New content is available; please refresh.");
             } else {
               // At this point, everything has been precached.
               // It's the perfect time to display a
               // "Content is cached for offline use." message.
-              console.log('Content is cached for offline use.');
+              console.log("Content is cached for offline use.");
             }
           }
         };
       };
     })
     .catch(error => {
-      console.error('Error during service worker registration:', error);
+      console.error("Error during service worker registration:", error);
     });
 }
 
@@ -88,7 +117,7 @@ function checkValidServiceWorker(swUrl) {
       // Ensure service worker exists, and that we really are getting a JS file.
       if (
         response.status === 404 ||
-        response.headers.get('content-type').indexOf('javascript') === -1
+        response.headers.get("content-type").indexOf("javascript") === -1
       ) {
         // No service worker found. Probably a different app. Reload the page.
         navigator.serviceWorker.ready.then(registration => {
@@ -103,15 +132,40 @@ function checkValidServiceWorker(swUrl) {
     })
     .catch(() => {
       console.log(
-        'No internet connection found. App is running in offline mode.'
+        "No internet connection found. App is running in offline mode."
       );
     });
 }
 
 export function unregister() {
-  if ('serviceWorker' in navigator) {
+  if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready.then(registration => {
       registration.unregister();
     });
   }
+}
+
+function askPermission() {
+  return new Promise(function(resolve, reject) {
+    const permissionResult = Notification.requestPermission(function(result) {
+      resolve(result);
+    });
+
+    if (permissionResult) {
+      permissionResult.then(resolve, reject);
+    }
+  }).then(function(permissionResult) {
+    if (permissionResult !== "granted") {
+      throw new Error("We weren't granted permission.");
+    }
+  });
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
 }
